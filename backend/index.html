@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <title>Spotify Playback Control</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
+  <script src="src/script.ts" type="module"></script>
+  <style>
+    body {
+      background-color: #121212;
+      color: #ffffff;
+    }
+    .card {
+      background-color: #1e1e1e;
+    }
+    .btn-primary {
+      background-color: #1db954;
+      border-color: #1db954;
+    }
+    .btn-primary:hover {
+      background-color: #1ed760;
+      border-color: #1ed760;
+    }
+    .profile-info {
+      display: flex;
+      align-items: center;
+    }
+    .profile-info img {
+      margin-right: 20px;
+    }
+    .listening-info {
+      text-align: center;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+
+<body class="text-center">
+<div class="container mt-5">
+  <h1 class="display-4">Spotify Profile</h1>
+  <section id="profile" class="card p-4 shadow-sm">
+    <div class="profile-info">
+      <img id="avatar" class="rounded-circle" width="200" height="200" src="#" alt=""/>
+      <ul class="list-unstyled text-start">
+        <li><i class="bi bi-person-fill"></i> <strong>User ID:</strong> <span id="id"></span></li>
+        <li><i class="bi bi-envelope-fill"></i> <strong>Email:</strong> <span id="email"></span></li>
+        <li><i class="bi bi-music-note-list"></i> <strong>Spotify URI:</strong> <a id="uri" href="#"></a></li>
+        <li><i class="bi bi-link-45deg"></i> <strong>Link:</strong> <a id="url" href="#"></a></li>
+        <li><i class="bi bi-image-fill"></i> <strong>Profile Image:</strong> <span id="imgUrl"></span></li>
+      </ul>
+    </div>
+    <div class="listening-info">
+      <strong>Listening to:</strong> <span id="track"></span>
+    </div>
+    <div id="controls" class="mt-4">
+      <button id="prevButton" class="btn btn-primary mx-2">
+        <i class="bi bi-skip-backward-fill"></i> Previous
+      </button>
+      <button id="nextButton" class="btn btn-primary mx-2">
+        <i class="bi bi-skip-forward-fill"></i> Next
+      </button>
+    </div>
+  </section>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM" crossorigin="anonymous"></script>
+</body>
+
+</html>
