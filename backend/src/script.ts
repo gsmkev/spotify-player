@@ -14,6 +14,9 @@ if (!code) {
 
     // Configurar eventos de clic para los botones
     setupPlaybackControls(accessToken, profile);
+    setupVolumeControl(accessToken);
+    setupRepeatControl(accessToken);
+    setupShuffleControl(accessToken);
 }
 
 async function fetchProfile(accessToken: string): Promise<UserProfile> {
@@ -68,9 +71,15 @@ function populateUI(profile: UserProfile, listening: CurrentlyPlaying) {
         const track = listening.item;
         const artistNames = track.artists.map((artist) => artist.name).join(", ");
         document.getElementById("track")!.innerText = `${track.name} by ${artistNames}`;
+        document.getElementById("albumImage")!.setAttribute("src", track.album.images[0]?.url || "#");
     } else {
         document.getElementById("track")!.innerText = "No se está reproduciendo ninguna canción";
+        document.getElementById("albumImage")!.setAttribute("src", "#");
     }
+
+    // Set the volume control to the current volume
+    const volumeControl = document.getElementById("volumeControl") as HTMLInputElement;
+    volumeControl.value = listening.device.volume_percent.toString();
 }
 
 function setupPlaybackControls(accessToken: string, profile: UserProfile) {
@@ -90,6 +99,86 @@ function setupPlaybackControls(accessToken: string, profile: UserProfile) {
         const listening = await fetchCurrentlyPlaying(accessToken);
         populateUI(profile, listening);
     });
+}
+
+function setupVolumeControl(accessToken: string) {
+    const volumeControl = document.getElementById("volumeControl") as HTMLInputElement;
+
+    volumeControl.addEventListener("input", async () => {
+        const volume = parseInt(volumeControl.value);
+        await setVolume(accessToken, volume);
+    });
+}
+
+function setupRepeatControl(accessToken: string) {
+    const repeatButton = document.getElementById("repeatButton")!;
+    let repeatState: "off" | "track" | "context" = "off";
+
+    repeatButton.addEventListener("click", async () => {
+        repeatState = repeatState === "off" ? "context" : repeatState === "context" ? "track" : "off";
+        await setRepeat(accessToken, repeatState);
+    });
+}
+
+function setupShuffleControl(accessToken: string) {
+    const shuffleButton = document.getElementById("shuffleButton")!;
+    let shuffleState = false;
+
+    shuffleButton.addEventListener("click", async () => {
+        shuffleState = !shuffleState;
+        await setShuffle(accessToken, shuffleState);
+    });
+}
+
+async function setVolume(accessToken: string, volume: number) {
+    const result = await fetch(`https://api.spotify.com/v1/me/player/volume?volume_percent=${volume}`, {
+        method: "PUT",
+        headers: {
+            Authorization: `Bearer ${accessToken}`,
+        },
+    });
+
+    if (result.status === 204) {
+        console.log("Volume set to", volume);
+    } else if (result.status === 401) {
+        console.error("Unauthorized: Check your token and scopes.");
+    } else {
+        console.error("Failed to set volume", result.status);
+    }
+}
+
+async function setRepeat(accessToken: string, state: "off" | "track" | "context") {
+    const result = await fetch(`https://api.spotify.com/v1/me/player/repeat?state=${state}`, {
+        method: "PUT",
+        headers: {
+            Authorization: `Bearer ${accessToken}`,
+        },
+    });
+
+    if (result.status === 204) {
+        console.log("Repeat mode set to", state);
+    } else if (result.status === 401) {
+        console.error("Unauthorized: Check your token and scopes.");
+    } else {
+        console.error("Failed to set repeat mode", result.status);
+    }
+}
+
+async function setShuffle(accessToken: string, state: boolean) {
+    const result = await fetch(`https://api.spotify.com/v1/me/player/shuffle?state=${state}`, {
+        method: "PUT",
+        headers: {
+            Authorization: `Bearer ${accessToken}`,
+        },
+    });
+
+    if (result.status === 204) {
+        console.log("Shuffle mode set to", state);
+    } else if (result.status === 401) {
+        console.error("Unauthorized: Check your token and scopes.");
+    } else {
+        console.error("Failed to set shuffle mode", result.status);
+    }
 }
 
 async function skipToPreviousTrack(accessToken: string) {
