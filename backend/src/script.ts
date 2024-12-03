@@ -3,22 +3,59 @@ import { redirectToAuthCodeFlow, getAccessToken } from "./authCodeWithPkce";
 const clientId = "b2f31fa68d8b46febedc8711d6729585";
 const params = new URLSearchParams(window.location.search);
 const code = params.get("code");
+let accessToken = sessionStorage.getItem("accessToken");
 
-if (!code) {
-    redirectToAuthCodeFlow(clientId);
+if (!accessToken) {
+    if (!code) {
+        redirectToAuthCodeFlow(clientId).catch(error => {
+            console.error("Error during redirect to auth code flow:", error);
+        });
+    } else {
+        try {
+            accessToken = await getAccessToken(clientId, code);
+            if (accessToken) {
+                sessionStorage.setItem("accessToken", accessToken);
+                const profile = await fetchProfile(accessToken);
+                const listening = await fetchCurrentlyPlaying(accessToken);
+                populateUI(profile, listening);
+
+                // Configure click events for buttons
+                setupPlaybackControls(accessToken, profile);
+                setupVolumeControl(accessToken);
+                setupRepeatControl(accessToken);
+                setupShuffleControl(accessToken);
+            } else {
+                console.error("Failed to obtain access token");
+            }
+        } catch (error) {
+            console.error("Error during authentication flow:", error);
+        }
+    }
 } else {
-    const accessToken = await getAccessToken(clientId, code);
-    const profile = await fetchProfile(accessToken);
-    const listening = await fetchCurrentlyPlaying(accessToken);
-    populateUI(profile, listening);
+    try {
+        const profile = await fetchProfile(accessToken);
+        const listening = await fetchCurrentlyPlaying(accessToken);
+        populateUI(profile, listening);
 
-    // Configurar eventos de clic para los botones
-    setupPlaybackControls(accessToken, profile);
-    setupVolumeControl(accessToken);
-    setupRepeatControl(accessToken);
-    setupShuffleControl(accessToken);
+        // Configure click events for buttons
+        setupPlaybackControls(accessToken, profile);
+        setupVolumeControl(accessToken);
+        setupRepeatControl(accessToken);
+        setupShuffleControl(accessToken);
+    } catch (error) {
+        console.error("Error using stored access token:", error);
+        sessionStorage.removeItem("accessToken");
+        redirectToAuthCodeFlow(clientId).catch(error => {
+            console.error("Error during redirect to auth code flow:", error);
+        });
+    }
 }
 
+/**
+ * Fetches the user's profile from Spotify.
+ * @param {string} accessToken - The access token for Spotify API.
+ * @returns {Promise<UserProfile>} - The user's profile.
+ */
 async function fetchProfile(accessToken: string): Promise<UserProfile> {
     const result = await fetch("https://api.spotify.com/v1/me", {
         method: "GET",
@@ -28,6 +65,11 @@ async function fetchProfile(accessToken: string): Promise<UserProfile> {
     return await result.json();
 }
 
+/**
+ * Fetches the currently playing track from Spotify.
+ * @param {string} accessToken - The access token for Spotify API.
+ * @returns {Promise<CurrentlyPlaying>} - The currently playing track.
+ */
 async function fetchCurrentlyPlaying(accessToken: string): Promise<CurrentlyPlaying> {
     const result = await fetch("https://api.spotify.com/v1/me/player", {
         method: "GET",
@@ -35,7 +77,7 @@ async function fetchCurrentlyPlaying(accessToken: string): Promise<CurrentlyPlay
     });
 
     if (result.status === 204 || result.status === 404) {
-        // No se está reproduciendo nada actualmente
+        // No track is currently playing
         return {
             is_playing: false,
             item: null,
@@ -56,6 +98,11 @@ async function fetchCurrentlyPlaying(accessToken: string): Promise<CurrentlyPlay
     return await result.json();
 }
 
+/**
+ * Populates the UI with the user's profile and currently playing track.
+ * @param {UserProfile} profile - The user's profile.
+ * @param {CurrentlyPlaying} listening - The currently playing track.
+ */
 function populateUI(profile: UserProfile, listening: CurrentlyPlaying) {
     document.getElementById("id")!.innerText = profile.display_name;
     document.getElementById("avatar")!.setAttribute("src", profile.images[0]?.url || "#");
@@ -73,7 +120,7 @@ function populateUI(profile: UserProfile, listening: CurrentlyPlaying) {
         document.getElementById("track")!.innerText = `${track.name} by ${artistNames}`;
         document.getElementById("albumImage")!.setAttribute("src", track.album.images[0]?.url || "#");
     } else {
-        document.getElementById("track")!.innerText = "No se está reproduciendo ninguna canción";
+        document.getElementById("track")!.innerText = "No track is currently playing";
         document.getElementById("albumImage")!.setAttribute("src", "#");
     }
 
@@ -82,25 +129,34 @@ function populateUI(profile: UserProfile, listening: CurrentlyPlaying) {
     volumeControl.value = listening.device.volume_percent.toString();
 }
 
+/**
+ * Sets up playback control buttons.
+ * @param {string} accessToken - The access token for Spotify API.
+ * @param {UserProfile} profile - The user's profile.
+ */
 function setupPlaybackControls(accessToken: string, profile: UserProfile) {
     const prevButton = document.getElementById("prevButton")!;
     const nextButton = document.getElementById("nextButton")!;
 
     prevButton.addEventListener("click", async () => {
         await skipToPreviousTrack(accessToken);
-        await delay(500); // Pausa de medio segundo
+        await delay(500); // Half-second pause
         const listening = await fetchCurrentlyPlaying(accessToken);
         populateUI(profile, listening);
     });
 
     nextButton.addEventListener("click", async () => {
         await skipToNextTrack(accessToken);
-        await delay(500); // Pausa de medio segundo
+        await delay(500); // Half-second pause
         const listening = await fetchCurrentlyPlaying(accessToken);
         populateUI(profile, listening);
     });
 }
 
+/**
+ * Sets up the volume control.
+ * @param {string} accessToken - The access token for Spotify API.
+ */
 function setupVolumeControl(accessToken: string) {
     const volumeControl = document.getElementById("volumeControl") as HTMLInputElement;
 
@@ -110,6 +166,10 @@ function setupVolumeControl(accessToken: string) {
     });
 }
 
+/**
+ * Sets up the repeat control button.
+ * @param {string} accessToken - The access token for Spotify API.
+ */
 function setupRepeatControl(accessToken: string) {
     const repeatButton = document.getElementById("repeatButton")!;
     let repeatState: "off" | "track" | "context" = "off";
@@ -120,6 +180,10 @@ function setupRepeatControl(accessToken: string) {
     });
 }
 
+/**
+ * Sets up the shuffle control button.
+ * @param {string} accessToken - The access token for Spotify API.
+ */
 function setupShuffleControl(accessToken: string) {
     const shuffleButton = document.getElementById("shuffleButton")!;
     let shuffleState = false;
@@ -130,6 +194,11 @@ function setupShuffleControl(accessToken: string) {
     });
 }
 
+/**
+ * Sets the volume on Spotify.
+ * @param {string} accessToken - The access token for Spotify API.
+ * @param {number} volume - The volume level to set (0-100).
+ */
 async function setVolume(accessToken: string, volume: number) {
     const result = await fetch(`https://api.spotify.com/v1/me/player/volume?volume_percent=${volume}`, {
         method: "PUT",
@@ -147,6 +216,11 @@ async function setVolume(accessToken: string, volume: number) {
     }
 }
 
+/**
+ * Sets the repeat mode on Spotify.
+ * @param {string} accessToken - The access token for Spotify API.
+ * @param {"off" | "track" | "context"} state - The repeat mode to set.
+ */
 async function setRepeat(accessToken: string, state: "off" | "track" | "context") {
     const result = await fetch(`https://api.spotify.com/v1/me/player/repeat?state=${state}`, {
         method: "PUT",
@@ -164,6 +238,11 @@ async function setRepeat(accessToken: string, state: "off" | "track" | "context"
     }
 }
 
+/**
+ * Sets the shuffle mode on Spotify.
+ * @param {string} accessToken - The access token for Spotify API.
+ * @param {boolean} state - The shuffle mode to set.
+ */
 async function setShuffle(accessToken: string, state: boolean) {
     const result = await fetch(`https://api.spotify.com/v1/me/player/shuffle?state=${state}`, {
         method: "PUT",
@@ -181,6 +260,10 @@ async function setShuffle(accessToken: string, state: boolean) {
     }
 }
 
+/**
+ * Skips to the previous track on Spotify.
+ * @param {string} accessToken - The access token for Spotify API.
+ */
 async function skipToPreviousTrack(accessToken: string) {
     const result = await fetch("https://api.spotify.com/v1/me/player/previous", {
         method: "POST",
@@ -198,6 +281,10 @@ async function skipToPreviousTrack(accessToken: string) {
     }
 }
 
+/**
+ * Skips to the next track on Spotify.
+ * @param {string} accessToken - The access token for Spotify API.
+ */
 async function skipToNextTrack(accessToken: string) {
     const result = await fetch("https://api.spotify.com/v1/me/player/next", {
         method: "POST",
@@ -215,7 +302,11 @@ async function skipToNextTrack(accessToken: string) {
     }
 }
 
-// Función auxiliar para agregar un pequeño retraso
+/**
+ * Helper function to add a small delay.
+ * @param {number} ms - The delay in milliseconds.
+ * @returns {Promise<void>} - A promise that resolves after the delay.
+ */
 function delay(ms: number) {
     return new Promise((resolve) => setTimeout(resolve, ms));
 }
